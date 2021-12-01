@@ -12,5 +12,5 @@ if __name__ == "__main__":
 
     datamodule = FastSpeech2DataModule(cfg.dataset)
     model = FastSpeech2Model(cfg.model)
-    trainer = Trainer()
+    trainer = Trainer(max_epochs=75)
     trainer.fit(model, datamodule)

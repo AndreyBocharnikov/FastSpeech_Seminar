@@ -2,10 +2,6 @@ name: FastSpeech2
 sample_rate: &sample_rate 22050
 n_mels: &n_mels 80
 
-
-defaults:
-  - hifigan/model/generator: v1
-
 dataset:
   filenames:
     - train
@@ -20,31 +16,6 @@ model:
   d_model: &d_model 256
   duration_coeff: 0.25
   sample_rate: *sample_rate
-  mappings_filepath: ${mappings_file}
-  vocoder: ${hifigan.model.generator}
-  vocoder_pretrain_path: "/root/andrey_b/tmp/NeMo/examples/tts/nemo_experiments/HifiGan/ruslan_pretrained/checkpoints/HifiGan--val_loss=0.1104-epoch=2891-last.ckpt"
-  train_ds:
-    dataset:
-      _target_: 'nemo.collections.tts.data.datalayers.FastSpeech2DatasetMing'
-      filename: 'train_fastspeech_tacotron.txt'
-      # preprocessed_path: '/root/data/TTS/ruslan/preprocessed_data_tacotron/RUSLAN'
-      phone_mapping: '/root/data/TTS/clean_ruslan/preprocessed_data_tacotron/RUSLAN/phone_ids2.json'
-    dataloader_params:
-      drop_last: false
-      shuffle: true
-      batch_size: 4  # 32 is default # initialy was 64, ming trains with 16, hifi was trained with 32x8
-      num_workers: 1
-
-  validation_ds:
-    dataset:
-      filename: 'val_fastspeech_tacotron.txt'
-      preprocessed_path: '/root/data/TTS/natasha/preprocessed_data_tacotron/natasha'
-      phone_mapping: '/root/data/TTS/clean_ruslan/preprocessed_data_tacotron/RUSLAN/phone_ids2.json'
-    dataloader_params:
-      drop_last: false
-      shuffle: false
-      batch_size: 16
-      num_workers: 4
 
   # FFTransformer encoder
   encoder:
@@ -56,8 +27,8 @@ model:
     kernel_size: 9
     dropout: 0.1
     attn_dropout: 0.1
-    n_embed: 56 # 56 # 360 # 74 # MING  # Should match number of tokens in symbol set +1 (pad_idx)
-    padding_idx: 55 # 55 # 0 # 73 # MING
+    n_embed: 56
+    padding_idx: 55
 
   # FFTransformer mel spec decoder
   decoder:
@@ -89,41 +60,11 @@ model:
     energy_min: -1.5685399770736694 # RUSLAN
     energy_max: 5.1348490715026855 # RUSLAN
 
-  optim:
-    _target_: torch.optim.Adam
-    betas: [0.9,0.98]
-    lr: 1
-    weight_decay: 1e-6
-    # scheduler setup
-  sched:
-    name: NoamAnnealing
-    warmup_steps: 4000
-    min_lr: 1e-5
-    d_model: ${model.d_model}
-
-vocoder:
-  resblock: 1
-  upsample_rates: [8, 8, 2, 2]
-  upsample_kernel_sizes: [16, 16, 4, 4]
-  upsample_initial_channel: 512
-  resblock_kernel_sizes: [3, 7, 11]
-  resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
-vocoder_pretrain_path: '/content/HifiGan.ckpt'
-
-trainer:
-  gpus: -1 # number of gpus
-  max_epochs: 75
-  num_nodes: 1
-  accelerator: ddp
-  accumulate_grad_batches: 1
-  checkpoint_callback: False  # Provided by exp_manager
-  logger: False  # Provided by exp_manager
-  flush_logs_every_n_steps: 1000
-  log_every_n_steps: 100
-  check_val_every_n_epoch: 1
-
-exp_manager:
-  exp_dir: null
-  name: ${name}
-  create_tensorboard_logger: True
-  create_checkpoint_callback: True
+  vocoder:
+    resblock: 1
+    upsample_rates: [8, 8, 2, 2]
+    upsample_kernel_sizes: [16, 16, 4, 4]
+    upsample_initial_channel: 512
+    resblock_kernel_sizes: [3, 7, 11]
+    resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+  vocoder_pretrain_path: 'HifiGan.ckpt'

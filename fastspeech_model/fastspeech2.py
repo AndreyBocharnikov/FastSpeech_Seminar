@@ -1,10 +1,5 @@
 import itertools
-import json
-import re
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
 
-import numpy as np
 import torch
 import pytorch_lightning as pl
 
@@ -29,20 +24,19 @@ class FastSpeech2Model(pl.LightningModule):
         self.mel_decoder = FastSpeech2Decoder(**cfg.decoder)
         self.variance_adapter = VarianceAdaptor(**cfg.variance_adaptor)
 
-
         self.loss = L2MelLoss()
         self.mseloss = torch.nn.MSELoss(reduction='none')
         self.durationloss = DurationLoss()
 
         self.vocoder = Generator(**cfg.vocoder)
-        checkpoint = torch.load(self.cfg.vocoder_pretrain_path)
+        checkpoint = torch.load(cfg.vocoder_pretrain_path, map_location='cpu')
         generator_state_dict = get_vocoder_generator(checkpoint['state_dict'])
-        # generator_state_dict = checkpoint['generator']
+
         self.vocoder.load_state_dict(generator_state_dict)
         self.vocoder.remove_weight_norm()
         self.vocoder.eval()
 
-        self.vocoder_sample_rate = self.cfg.sample_rate
+        self.vocoder_sample_rate = cfg.sample_rate
 
 
     def configure_optimizers(self):
@@ -100,35 +94,6 @@ class FastSpeech2Model(pl.LightningModule):
 
         reconstruction_loss = mel_loss + dur_loss + pitch_loss + energy_loss
 
-        if self.global_step >= self.second_stage_start:
-            real_out, real_features, generated_out, generated_features = self.discriminator(spec, mel.transpose(1, 2))
-            feature_matching_loss = self.feature_loss(real_features, generated_features)
-            adversarial_generator_loss = torch.mean((1 - generated_out) ** 2)
-            lambda_fm = reconstruction_loss.item() / feature_matching_loss.item()
-            total_loss = reconstruction_loss + adversarial_generator_loss + lambda_fm * feature_matching_loss
-        else:
-            total_loss = reconstruction_loss
-
-        self.manual_backward(total_loss)
-        self.optim_g.step()
-        self.optim_g.zero_grad()
-
-        if self.global_step >= self.second_stage_start:
-            real_out, _, generated_out, _ = self.discriminator(spec, mel.detach().transpose(1, 2))
-
-            d_loss = torch.mean((1 - real_out) ** 2) + torch.mean(generated_out ** 2)
-
-            self.manual_backward(d_loss)
-            self.optim_d.step()
-            self.optim_d.zero_grad()
-
-        schedulers = self.lr_schedulers()
-        if schedulers is not None:
-            sch1, sch2 = schedulers
-            sch1.step()
-            if self.global_step >= self.second_stage_start:
-                sch2.step()
-
         if batch_idx == 0:
             lens = ["fl", spec_len, (torch.exp(log_dur_preds) - 1).sum(dim=1)]
             self.log_wavs(spec, mel, lens, "train")
@@ -138,36 +103,8 @@ class FastSpeech2Model(pl.LightningModule):
         self.log(name="train_pitch_loss", value=pitch_loss)
         self.log(name="train_energy_loss", value=energy_loss)
 
-        if self.global_step >= self.second_stage_start:
-            self.log(name="train_fm_loss", value=feature_matching_loss)
-            self.log(name="train_g_loss", value=adversarial_generator_loss)
-            self.log(name="train_d_loss", value=d_loss)
-        self.log(name="train_loss", value=reconstruction_loss, sync_dist=True)
-        self.log("r_loss", reconstruction_loss, prog_bar=True, logger=False, sync_dist=True)
-
-    def training_epoch_end(self, outputs):
-        if self.log_train_images and self.logger is not None and self.logger.experiment is not None \
-                and self.log_train == "images":
-            tb_logger = self.logger.experiment
-            if isinstance(self.logger, LoggerCollection):
-                for logger in self.logger:
-                    if isinstance(logger, TensorBoardLogger):
-                        tb_logger = logger.experiment
-                        break
-            spec_target, spec_predict = outputs[0]["outputs"]
-            tb_logger.add_image(
-                "train_mel_target",
-                plot_spectrogram_to_numpy(spec_target[0].data.cpu().numpy()),
-                self.global_step,
-                dataformats="HWC",
-            )
-            spec_predict = spec_predict[0].data.cpu().numpy()
-            tb_logger.add_image(
-                "train_mel_predicted", plot_spectrogram_to_numpy(spec_predict.T), self.global_step, dataformats="HWC",
-            )
-            self.log_train_images = False
-
-            return super().training_epoch_end(outputs)
+        self.log(name="train_loss", value=reconstruction_loss, prog_bar=True, sync_dist=True) #logger=False,
+        return reconstruction_loss
 
     def validation_step(self, batch, batch_idx):
         spec, spec_len, t, tl, durations, pitch, energies = batch
@@ -181,11 +118,10 @@ class FastSpeech2Model(pl.LightningModule):
             log_duration_pred=log_dur_preds, duration_target=durations.float(), mask=mask
         )
 
-        for _ in range(3):
-            self.log(name="val_loss", value=loss)
-            self.log(name="val_pitch_loss", value=pitch_loss)
-            self.log(name="val_energy_loss", value=energy_loss)
-            self.log(name="val_duration_loss", value=dur_loss)
+        self.log(name="val_loss", value=loss)
+        self.log(name="val_pitch_loss", value=pitch_loss)
+        self.log(name="val_energy_loss", value=energy_loss)
+        self.log(name="val_duration_loss", value=dur_loss)
 
         if batch_idx == 0:
             lens = ["fl", spec_len, (torch.round(torch.exp(log_dur_preds)) - 1).sum(dim=1)]
@@ -209,28 +145,4 @@ class FastSpeech2Model(pl.LightningModule):
         #                                 global_step=self.global_step, sample_rate=self.vocoder_sample_rate)
         self.logger.experiment.add_audio(f" {split} generated on gt mel", generated_on_gt_mel.detach().cpu().numpy(),
                                          global_step=self.global_step, sample_rate=self.vocoder_sample_rate)
-
-    def validation_epoch_end(self, outputs):
-        if self.logger is not None and self.logger.experiment is not None and self.log_train == "images":
-            tb_logger = self.logger.experiment
-            if isinstance(self.logger, LoggerCollection):
-                for logger in self.logger:
-                    if isinstance(logger, TensorBoardLogger):
-                        tb_logger = logger.experiment
-                        break
-            _, spec_target, spec_predict = outputs[0].values()
-            tb_logger.add_image(
-                "val_mel_target",
-                plot_spectrogram_to_numpy(spec_target[0].data.cpu().numpy()),
-                self.global_step,
-                dataformats="HWC",
-            )
-            spec_predict = spec_predict[0].data.cpu().numpy()
-            tb_logger.add_image(
-                "val_mel_predicted", plot_spectrogram_to_numpy(spec_predict.T), self.global_step, dataformats="HWC",
-            )
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()  # This reduces across batches, not workers!
-        self.log('val_loss', avg_loss, sync_dist=True)
-
-        self.log_train_images = True
 

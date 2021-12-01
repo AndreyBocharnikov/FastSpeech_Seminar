@@ -16,14 +16,14 @@ class FastSpeech2DataModule(LightningDataModule):
         self.filename_val = cfg.filenames[1]
         self.bsz_val = cfg.batch_sizes[1]
         self.preprocessed_path = cfg.preprocessed_path
-        self.phone_mapping = cfg.phone_mapping
+        self.phone_mapping = os.path.join(cfg.preprocessed_path, cfg.phone_mapping)
 
     def setup(self, stage: Optional[str] = None):
         self.train = FastSpeech2Dataset(self.filename_train, self.preprocessed_path, self.phone_mapping)
         self.val = FastSpeech2Dataset(self.filename_val, self.preprocessed_path, self.phone_mapping)
 
     def train_dataloader(self):
-        return DataLoader(self.train, batch_size=self.bsz_train)
+        return DataLoader(self.train, batch_size=self.bsz_train, collate_fn=FastSpeech2Dataset.collate_fn)
 
     def val_dataloader(self):
         return DataLoader(self.val, batch_size=self.bsz_val)
@@ -97,7 +97,8 @@ class FastSpeech2Dataset(Dataset):
 
         return phone, mel, pitch, energy, duration
 
-    def collate_fn(self, batch):
+    @staticmethod
+    def collate_fn(batch):
         phones, mels, pitches, energies, durations = zip(*batch)
         # phones, wavs, pitches, energies, durations = zip(*batch)
 
