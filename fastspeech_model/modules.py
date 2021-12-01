@@ -156,7 +156,7 @@ class VarianceAdaptor(nn.Module):
         dur_out = x
         out = dur_out.clone()
 
-        mask = get_mask_from_lengths(x_len if self.supplementary_first else spec_len)
+        mask = get_mask_from_lengths(x_len)
         pitch_preds = self.pitch_predictor(dur_out)
         if pitch_target is not None:
             pitch_out = self.pitch_lookup(torch.bucketize(pitch_target, self.pitch_bins))

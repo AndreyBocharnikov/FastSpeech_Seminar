@@ -7,8 +7,8 @@ dataset:
     - train_fastspeech_tacotron.txt
     - val_fastspeech_tacotron.txt
   batch_sizes:
-    - 8
-    - 8
+    - 4
+    - 4
   preprocessed_path: 'RUSLAN'
   phone_mapping: 'phone_ids2.json'
 
