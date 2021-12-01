@@ -38,7 +38,6 @@ class FastSpeech2Model(pl.LightningModule):
 
         self.vocoder_sample_rate = cfg.sample_rate
 
-
     def configure_optimizers(self):
         self.optim = optim.Adam(params=itertools.chain(self.encoder.parameters(), self.mel_decoder.parameters(), self.variance_adapter.parameters()),
                                 lr=0.0001)
@@ -135,7 +134,7 @@ class FastSpeech2Model(pl.LightningModule):
         lens = list(map(lambda x: torch.maximum(x, torch.tensor([7]).cuda()), lens))
         with torch.no_grad():
             generated_on_gt_mel = self.vocoder(x=gt_mel[:1, :, :lens[0]])  # first sample from batch
-            n = 8 if split == "validation" else 4
+            n = 4 if split == "validation" else 4
             for i in range(n):
                 generated_on_predicted_mel = self.vocoder(x=pred_mel[i: i + 1, :lens[1][i]].transpose(1, 2))
                 self.logger.experiment.add_audio(f"{split} generated in predicted mel {i}",

@@ -110,39 +110,21 @@ class VarianceAdaptor(nn.Module):
         )
         self.length_regulator = LengthRegulator()
 
-        self.pitch = pitch
-        self.energy = energy
-        self.supplementary_first = supplementary_first
-        # -- Pitch Setup --
-        # NOTE: Pitch is clamped to 1e-5 which gets mapped to bin 1. But it is padded with 0s that get mapped to bin 0.
-        if self.pitch:
-            if log_pitch:
-                pitch_min = np.log(pitch_min)
-                pitch_max = np.log(pitch_max)
-            pitch_operator = torch.exp if log_pitch else lambda x: x
-            if use_predefined_boundaries:
-                pitch_bins = torch.tensor(np.load(pitch_boundaries_path))
-            else:
-                pitch_bins = pitch_operator(torch.linspace(start=pitch_min, end=pitch_max, steps=n_f0_bins - 1))
-            # Prepend 0 for unvoiced frames
-            # pitch_bins = torch.cat((torch.tensor([0.0]), pitch_bins))
+        pitch_bins = torch.linspace(start=pitch_min, end=pitch_max, steps=n_f0_bins - 1)
 
-            self.register_buffer("pitch_bins", pitch_bins)
-            self.pitch_predictor = VariancePredictor(
-                d_model=d_model, d_inner=n_f0_bins, kernel_size=pitch_kernel_size, dropout=dropout
-            )
-            # Predictor outputs values directly rather than one-hot vectors, therefore Embedding
-            self.pitch_lookup = nn.Embedding(n_f0_bins, d_model)
+        self.register_buffer("pitch_bins", pitch_bins)
+        self.pitch_predictor = VariancePredictor(
+            d_model=d_model, d_inner=n_f0_bins, kernel_size=pitch_kernel_size, dropout=dropout
+        )
+        self.pitch_lookup = nn.Embedding(n_f0_bins, d_model)
 
-        # -- Energy Setup --
-        if self.energy:
-            self.register_buffer(  # Linear scale bins
-                "energy_bins", torch.linspace(start=energy_min, end=energy_max, steps=n_energy_bins - 1)
-            )
-            self.energy_predictor = VariancePredictor(
-                d_model=d_model, d_inner=n_energy_bins, kernel_size=energy_kernel_size, dropout=dropout,
-            )
-            self.energy_lookup = nn.Embedding(n_energy_bins, d_model)
+        self.register_buffer(  # Linear scale bins
+            "energy_bins", torch.linspace(start=energy_min, end=energy_max, steps=n_energy_bins - 1)
+        )
+        self.energy_predictor = VariancePredictor(
+            d_model=d_model, d_inner=n_energy_bins, kernel_size=energy_kernel_size, dropout=dropout,
+        )
+        self.energy_lookup = nn.Embedding(n_energy_bins, d_model)
 
     def phonems_to_mels(self, x, log_dur_preds, dur_target, spec_len):
         if dur_target is not None:
