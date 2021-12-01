@@ -35,7 +35,7 @@ class TextMelLoader(torch.utils.data.Dataset):
     def get_mel_text_pair(self, audiopath_and_text):
         # separate filename and text
         audiopath, text = audiopath_and_text[0], audiopath_and_text[1]
-        audiopath = os.path.join('/content/RUSLAN', audiopath) + '.wav'
+        audiopath = os.path.join('/content/raw_wavs/RUSLAN', audiopath) + '.wav'
         if self.language == "en":
             text = self.get_text(text)
         else:

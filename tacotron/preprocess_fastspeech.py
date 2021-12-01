@@ -4,7 +4,6 @@ import random
 import json
 from copy import deepcopy
 
-import tgt
 import librosa
 import numpy as np
 import pyworld as pw
@@ -356,7 +355,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     hparams = create_hparams(args.hparams)
-    need_tacotron = False
+    need_tacotron = True
 
     preprocessor = Preprocessor(need_tacotron, hparams)
     if need_tacotron:

@@ -98,9 +98,9 @@ def create_hparams(hparams_string=None, verbose=False):
 
         # FastSpeech paths
         checkpoint_path='/content/checkpoint_32000',
-        raw_path="/content/RUSLAN/",
+        raw_path="/content/raw_wavs",
         preprocessed_path="/content/own_features",
-        meta_phones="/content/metadata_phonems_w_silr.csv",
+        meta_phones="/content/FastSpeech_Seminar/metadata_phonems_w_silr.csv",
         phonems_mapping="/content/phone_ids2.json"
     )
 
