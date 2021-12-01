@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import torchaudio
 
-from data_utils import TextMelLoader, TextMelCollate, ComputeFeaturesCollate
+from data_utils import TextMelLoader, ComputeFeaturesCollate
 from hparams import create_hparams
 from train import load_model, warm_start_model
 
@@ -26,7 +26,6 @@ class Preprocessor:
         self.in_dir = hparams.raw_path
         self.out_dir = hparams.preprocessed_path
 
-        # self.val_size = config["preprocessing"]["val_size"]
         self.sampling_rate = hparams.sampling_rate
         self.hop_length = hparams.hop_length
 
@@ -50,9 +49,6 @@ class Preprocessor:
 
         self.sample_phones_mapping = self.load_sample_phones_mapping(hparams.meta_phones)
         print(f"{len(self.sample_phones_mapping)} saples")
-        # with open(hparams.phonems_mapping) as f:
-
-        self.phonems_mapping = None
 
     def load_sample_phones_mapping(self, path):
         sample_phones_mapping = dict()
@@ -82,7 +78,6 @@ class Preprocessor:
 
         def get_log(value):
             return np.log(value)
-            # return np.log(value) if value != 0 else 0
 
         for i in range(dp.shape[0]):
             for j in range(dp.shape[1]):
@@ -327,61 +322,6 @@ class Preprocessor:
             mel_spectrogram.shape[0],
         )
 
-    def get_alignment(self, tier):
-        sil_phones = ["sil", "sp", "spn"]
-
-        phones = []
-        durations = []
-        start_time = 0
-        end_time = 0
-        end_idx = 0
-        tier_objects = list(tier._objects)
-        tier_objects_with_silence = deepcopy(tier_objects)
-        add_index = 0
-        # print('before')
-        # print(tier_objects)
-        for i in range(len(tier_objects) - 1):
-            diff = tier_objects[i + 1].start_time - tier_objects[i].end_time
-            if diff != 0:
-                tier_objects_with_silence.insert(i + 1 + add_index,
-                                                 tgt.Interval(tier_objects[i].end_time,
-                                                              tier_objects[i + 1].start_time,
-                                                              "_"))
-                add_index += 1
-        # print('after')
-        # print(tier_objects_with_silence)
-        for t in tier_objects_with_silence:
-            s, e, p = t.start_time, t.end_time, t.text
-
-            # Trim leading silences
-            if not phones:
-                if p in sil_phones:
-                    continue
-                else:
-                    start_time = s
-
-            if p not in sil_phones:
-                # For ordinary phones
-                phones.append(p)
-                end_time = e
-                end_idx = len(phones)
-            else:
-                # For silent phones
-                phones.append(p)
-
-            durations.append(
-                int(
-                    np.round(e * self.sampling_rate / self.hop_length)
-                    - np.round(s * self.sampling_rate / self.hop_length)
-                )
-            )
-
-        # Trim tailing silences
-        phones = phones[:end_idx]
-        durations = durations[:end_idx]
-
-        return phones, durations, start_time, end_time
-
     def remove_outlier(self, values):
         values = np.array(values)
         p25 = np.percentile(values, 25)
@@ -404,93 +344,6 @@ class Preprocessor:
             min_value = min(min_value, min(values))
 
         return min_value, max_value
-
-
-def right_order():
-    base_path = '/Users/a.bocharnikov/Downloads/tts/RUSLAN'
-    train_right_order = os.path.join(base_path, 'train_right_order.txt')
-    val_right_order = os.path.join(base_path, 'val_right_order.txt')
-    all_samples = os.path.join(base_path, 'metadata_phonems_w_silr_fullpaths.csv')
-    train_result = os.path.join(base_path, 'train_fastspeech_tacotron.txt')
-    val_result = os.path.join(base_path, 'val_fastspeech_tacotron.txt')
-
-    def split(right_order_path, result_path):
-        with open(right_order_path) as ro, open(result_path, 'w') as r:
-            for sample in ro:
-                name, _, _, _ = sample.split('|')
-                if name not in name_phones:
-                    continue
-                phones = name_phones[name]
-                target_sample = "|".join((name, 'RUSLAN', phones, 'kek'))
-                r.write(target_sample + '\n')
-
-    name_phones = dict()
-    with open(all_samples) as f_as:
-        for sample in f_as:
-            path, phones = sample.split('|')
-            name = path.split('/')[-1].split('.')[0]
-            name_phones[name] = phones.strip()
-
-    split(train_right_order, train_result)
-    split(val_right_order, val_result)
-
-
-def check_distribution():
-    basepath, boundary = '/root/data/TTS/ruslan/preprocessed_data_tacotron/RUSLAN', 9
-    # basepath, boundary = '/root/data/TTS/natasha/preprocessed_data_tacotron/natasha', 5
-    # basepath, boundary = '/root/andrey_b/FastSpeech2/preprocessed_data/LJSpeech', 6
-    with open(os.path.join(basepath, 'stats.json')) as f:
-        stats = json.load(f)
-        pitch = stats["pitch"]
-        pitch_min, pitch_max, pitch_mean, pitch_std = pitch
-        n_f0_bins = 256
-        pitch_bins = torch.linspace(start=pitch_min, end=pitch_max, steps=n_f0_bins - 1)
-    print(pitch_mean, pitch_std)
-    print("pitch boarders", pitch_min * pitch_std + pitch_mean, pitch_max * pitch_std + pitch_mean)
-
-    from pathlib import Path
-    p = Path(os.path.join(basepath, 'pitch'))
-    paths = list(p.glob('**/*.npy'))
-    count = torch.zeros(n_f0_bins).long()
-    total = 0
-    pitches = []
-    for path in paths:
-        pitch = np.load(str(path)).squeeze()
-        # pitch[pitch >= boundary] = boundary
-        if np.any(np.isnan(pitch)):
-            continue
-        pitches.extend(pitch.tolist())
-        """
-        pitch_ids = torch.bucketize(pitch, pitch_bins)
-        total += len(pitch_ids)
-        for pitch_id in pitch_ids:
-            count[pitch_id] += 1
-        """
-    """
-    print(((count / total) > 0.01).sum(), ((count / total) > 0.001).sum())
-    np.set_printoptions(precision=4)
-    np.set_printoptions(suppress=True)
-    print((count / total).numpy())
-    """
-
-    pitches = sorted(pitches)
-    pitch_bins = np.array_split(pitches, n_f0_bins - 1)
-    # boundaries = [pitch_bins[0][0]] + [pitch_bin[-1] for pitch_bin in pitch_bins]
-    boundaries = [pitch_bin[-1] for pitch_bin in pitch_bins]
-    print(boundaries)
-    np.save(basepath.split('/')[-1] + '_boundary.npy', boundaries)
-    n, bins, _ = plt.hist(np.array(pitches), density=True, bins=boundaries)  # density=False would make counts
-    plt.ylabel('Probability')
-    plt.xlabel('Data')
-    plt.savefig(basepath.split('/')[-1] + '_norm.png')
-
-    """
-    print(len(pitches), np.min(pitches), np.max(pitches))
-    n, bins, _ = plt.hist(np.array(pitches), density=True, bins=n_f0_bins)  # density=False would make counts
-    plt.ylabel('Probability')
-    plt.xlabel('Data')
-    plt.savefig(basepath.split('/')[-1] + '_boundary.png')
-    """
 
 
 if __name__ == "__main__":

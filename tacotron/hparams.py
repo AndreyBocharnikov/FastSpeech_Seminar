@@ -7,7 +7,7 @@ def create_hparams(hparams_string=None, verbose=False):
 
     hparams = tf.contrib.training.HParams(
         language='ru',
-        phone_mapping_path='/root/andrey_b/tacotron2/filelists/phone_ids2.json',
+        phone_mapping_path='/content/FastSpeech_Seminar/RUSLAN/phone_ids2.json',
         ################################
         # Experiment Parameters        #
         ################################
@@ -88,7 +88,7 @@ def create_hparams(hparams_string=None, verbose=False):
         mask_padding=True,  # set model's padded outputs to padded values
 
         # Hifi vocoder
-        vocoder_path='/root/andrey_b/tmp/NeMo/examples/tts/nemo_experiments/HifiGan/ruslan_pretrained/checkpoints/HifiGan--val_loss=0.1104-epoch=2891-last.ckpt',
+        vocoder_path='HifiGan.ckpt',
         resblock=1,
         upsample_rates=[8, 8, 2, 2],
         upsample_kernel_sizes=[16, 16, 4, 4],
@@ -97,11 +97,11 @@ def create_hparams(hparams_string=None, verbose=False):
         resblock_dilation_sizes=[[1, 3, 5], [1, 3, 5], [1, 3, 5]],
 
         # FastSpeech paths
-        checkpoint_path='/root/andrey_b/tacotron2/outdir/ruslan_32k/checkpoint_32000',
-        raw_path="/root/data/TTS/natasha/raw/",
-        preprocessed_path="/root/data/TTS/clean_ruslan/preprocessed_data_tacotron/RUSLAN",
-        meta_phones="/root/andrey_b/tacotron2/filelists/metadata_phonems_natasha.csv",
-        phonems_mapping="/root/andrey_b/tacotron2/filelists/phone_ids2.json"
+        checkpoint_path='/content/checkpoint_32000',
+        raw_path="/content/RUSLAN/",
+        preprocessed_path="/content/own_features",
+        meta_phones="/content/metadata_phonems_w_silr.csv",
+        phonems_mapping="/content/phone_ids2.json"
     )
 
     if hparams_string:

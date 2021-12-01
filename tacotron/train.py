@@ -10,16 +10,17 @@ from numpy import finfo
 import torch
 import torchaudio
 
-import hifigan
-from distributed import apply_gradient_allreduce
+
+#import hifigan
+#from distributed import apply_gradient_allreduce
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 
 from model import Tacotron2
 from data_utils import TextMelLoader, TextMelCollate
-from loss_function import Tacotron2Loss
-from logger import Tacotron2Logger
+#from loss_function import Tacotron2Loss
+#from logger import Tacotron2Logger
 from hparams import create_hparams
 from utils import load_wav_to_torch
 
