@@ -1,6 +1,6 @@
 name: FastSpeech2
-sample_rate: 22050
-n_mels: 80
+sample_rate: &sample_rate 22050
+n_mels: &n_mels 80
 
 
 defaults:
@@ -17,11 +17,9 @@ dataset:
   phone_mapping: 'phone_ids2.json'
 
 model:
-  add_pitch_predictor: True
-  add_energy_predictor: True
-  d_model: 256
+  d_model: &d_model 256
   duration_coeff: 0.25
-  sample_rate: ${sample_rate}
+  sample_rate: *sample_rate
   mappings_filepath: ${mappings_file}
   vocoder: ${hifigan.model.generator}
   vocoder_pretrain_path: "/root/andrey_b/tmp/NeMo/examples/tts/nemo_experiments/HifiGan/ruslan_pretrained/checkpoints/HifiGan--val_loss=0.1104-epoch=2891-last.ckpt"
@@ -39,7 +37,6 @@ model:
 
   validation_ds:
     dataset:
-      _target_: 'nemo.collections.tts.data.datalayers.FastSpeech2DatasetMing'
       filename: 'val_fastspeech_tacotron.txt'
       preprocessed_path: '/root/data/TTS/natasha/preprocessed_data_tacotron/natasha'
       phone_mapping: '/root/data/TTS/clean_ruslan/preprocessed_data_tacotron/RUSLAN/phone_ids2.json'
@@ -49,31 +46,9 @@ model:
       batch_size: 16
       num_workers: 4
 
-  preprocessor:
-    _target_: nemo.collections.asr.parts.preprocessing.features.FilterbankFeatures
-    dither: 0.0
-    nfilt: ${n_mels}
-    frame_splicing: 1
-    highfreq: 8000
-    log: true
-    log_zero_guard_type: clamp
-    log_zero_guard_value: 1e-05
-    lowfreq: 0
-    mag_power: 1.0
-    n_fft: 1024
-    n_window_size: 1024
-    n_window_stride: 256
-    normalize: null
-    pad_to: 16
-    pad_value: -11.52
-    preemph: null
-    sample_rate: ${sample_rate}
-    window: hann
-
   # FFTransformer encoder
   encoder:
-    _target_: nemo.collections.tts.modules.fastspeech2.FastSpeech2Encoder
-    d_model: ${model.d_model}
+    d_model: *d_model
     n_layers: 4
     n_attn_heads: 2
     d_attn_head: 256
@@ -86,9 +61,8 @@ model:
 
   # FFTransformer mel spec decoder
   decoder:
-    _target_: nemo.collections.tts.modules.fastspeech2.MelSpecDecoder
-    d_model: ${model.d_model}
-    d_out: ${n_mels}
+    d_model: *d_model
+    d_out: *n_mels
     n_layers: 6
     n_attn_heads: 2
     d_attn_head: 256
@@ -99,8 +73,7 @@ model:
 
   # VarianceAdaptor
   variance_adaptor:
-    _target_: nemo.collections.tts.modules.fastspeech2.VarianceAdaptor
-    d_model: ${model.d_model}
+    d_model: *d_model
     dropout: 0.2
     dur_d_hidden: 256
     dur_kernel_size: 3
@@ -127,6 +100,15 @@ model:
     warmup_steps: 4000
     min_lr: 1e-5
     d_model: ${model.d_model}
+
+vocoder:
+  resblock: 1
+  upsample_rates: [8, 8, 2, 2]
+  upsample_kernel_sizes: [16, 16, 4, 4]
+  upsample_initial_channel: 512
+  resblock_kernel_sizes: [3, 7, 11]
+  resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+vocoder_pretrain_path: '/content/HifiGan.ckpt'
 
 trainer:
   gpus: -1 # number of gpus

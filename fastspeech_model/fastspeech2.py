@@ -1,16 +1,3 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import itertools
 import json
 import re
@@ -21,12 +8,13 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 
-from omegaconf import MISSING, DictConfig, OmegaConf, open_dict
 from pytorch_lightning.loggers import LoggerCollection, TensorBoardLogger
 from torch import optim
 
 from fastspeech_model.losses import L2MelLoss, DurationLoss, masked_loss
 from fastspeech_model.modules import FastSpeech2Encoder, FastSpeech2Decoder, VarianceAdaptor
+from fastspeech_model.utils import get_vocoder_generator
+from hifigan_generator import Generator
 
 
 class FastSpeech2Model(pl.LightningModule):
@@ -35,10 +23,7 @@ class FastSpeech2Model(pl.LightningModule):
     def __init__(self, cfg):
         super().__init__()
 
-        self.pitch = cfg.add_pitch_predictor
-        self.energy = cfg.add_energy_predictor
         self.duration_coeff = cfg.duration_coeff
-        self.second_stage_start = cfg.second_stage_start
 
         self.encoder = FastSpeech2Encoder(**cfg.encoder)
         self.mel_decoder = FastSpeech2Decoder(**cfg.decoder)
@@ -49,7 +34,7 @@ class FastSpeech2Model(pl.LightningModule):
         self.mseloss = torch.nn.MSELoss(reduction='none')
         self.durationloss = DurationLoss()
 
-        self.vocoder = instantiate(self.cfg.vocoder)
+        self.vocoder = Generator(**cfg.vocoder)
         checkpoint = torch.load(self.cfg.vocoder_pretrain_path)
         generator_state_dict = get_vocoder_generator(checkpoint['state_dict'])
         # generator_state_dict = checkpoint['generator']

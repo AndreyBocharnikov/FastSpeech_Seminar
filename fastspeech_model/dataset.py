@@ -9,14 +9,14 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class FastSpeech2DataModule(LightningDataModule):
-    def __init__(self, filenames, batch_sizes, preprocessed_path, phone_mapping):
+    def __init__(self, cfg):
         super().__init__()
-        self.filename_train = filenames[0]
-        self.bsz_train = batch_sizes[0]
-        self.filename_val = filenames[1]
-        self.bsz_val = batch_sizes[1]
-        self.preprocessed_path = preprocessed_path
-        self.phone_mapping = phone_mapping
+        self.filename_train = cfg.filenames[0]
+        self.bsz_train = cfg.batch_sizes[0]
+        self.filename_val = cfg.filenames[1]
+        self.bsz_val = cfg.batch_sizes[1]
+        self.preprocessed_path = cfg.preprocessed_path
+        self.phone_mapping = cfg.phone_mapping
 
     def setup(self, stage: Optional[str] = None):
         self.train = FastSpeech2Dataset(self.filename_train, self.preprocessed_path, self.phone_mapping)
