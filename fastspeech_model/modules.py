@@ -153,43 +153,29 @@ class VarianceAdaptor(nn.Module):
         log_dur_preds.masked_fill_(~get_mask_from_lengths(x_len), 0)
         # Output is Batch, Time
 
-        if self.supplementary_first:
-            dur_out = x
-            out = dur_out.clone()
-        else:
-            dur_out, spec_len = self.phonems_to_mels(x, log_dur_preds, dur_target, spec_len)
-            dur_out *= get_mask_from_lengths(x_len if self.supplementary_first else spec_len).unsqueeze(dim=2)
-            out = dur_out.clone()
+        dur_out = x
+        out = dur_out.clone()
 
         mask = get_mask_from_lengths(x_len if self.supplementary_first else spec_len)
-        # Pitch
-        pitch_preds = None
-        if self.pitch:
-            # Possible future work:
-            #   Add pitch spectrogram prediction & conversion back to pitch contour using iCWT
-            #   (see Appendix C of the FastSpeech 2/2s paper).
-            pitch_preds = self.pitch_predictor(dur_out)
-            if pitch_target is not None:
-                pitch_out = self.pitch_lookup(torch.bucketize(pitch_target, self.pitch_bins))
-            else:
-                pitch_out = self.pitch_lookup(torch.bucketize(pitch_preds.detach(), self.pitch_bins))
-            out += pitch_out
+        pitch_preds = self.pitch_predictor(dur_out)
+        if pitch_target is not None:
+            pitch_out = self.pitch_lookup(torch.bucketize(pitch_target, self.pitch_bins))
+        else:
+            pitch_out = self.pitch_lookup(torch.bucketize(pitch_preds.detach(), self.pitch_bins))
+        out += pitch_out
         out *= mask.unsqueeze(dim=2)
 
         # Energy
-        energy_preds = None
-        if self.energy:
-            energy_preds = self.energy_predictor(dur_out)
-            if energy_target is not None:
-                energy_out = self.energy_lookup(torch.bucketize(energy_target, self.energy_bins))
-            else:
-                energy_out = self.energy_lookup(torch.bucketize(energy_preds.detach(), self.energy_bins))
-            out += energy_out
+        energy_preds = self.energy_predictor(dur_out)
+        if energy_target is not None:
+            energy_out = self.energy_lookup(torch.bucketize(energy_target, self.energy_bins))
+        else:
+            energy_out = self.energy_lookup(torch.bucketize(energy_preds.detach(), self.energy_bins))
+        out += energy_out
         out *= mask.unsqueeze(dim=2)
 
-        if self.supplementary_first:
-            out, spec_len = self.phonems_to_mels(out, log_dur_preds, dur_target, spec_len)
-            out *= get_mask_from_lengths(spec_len).unsqueeze(-1)
+        out, spec_len = self.phonems_to_mels(out, log_dur_preds, dur_target, spec_len)
+        out *= get_mask_from_lengths(spec_len).unsqueeze(-1)
 
         return out, log_dur_preds, pitch_preds, energy_preds, spec_len
 
