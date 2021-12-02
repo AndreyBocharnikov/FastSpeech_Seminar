@@ -147,35 +147,15 @@ class VarianceAdaptor(nn.Module):
             energy_target: Energy targets for the energy predictor. Needs to be passed in during training.
             spec_len: Target spectrogram length. Needs to be passed in during training.
         """
-        # Duration predictions (or ground truth) fed into Length Regulator to
-        # expand the hidden states of the encoder embedding
-        log_dur_preds = self.duration_predictor(x)
-        log_dur_preds.masked_fill_(~get_mask_from_lengths(x_len), 0)
-        # Output is Batch, Time
-
-        dur_out = x
-        out = dur_out.clone()
-
-        mask = get_mask_from_lengths(x_len)
-        pitch_preds = self.pitch_predictor(dur_out)
-        if pitch_target is not None:
-            pitch_out = self.pitch_lookup(torch.bucketize(pitch_target, self.pitch_bins))
-        else:
-            pitch_out = self.pitch_lookup(torch.bucketize(pitch_preds.detach(), self.pitch_bins))
-        out += pitch_out
-        out *= mask.unsqueeze(dim=2)
-
-        # Energy
-        energy_preds = self.energy_predictor(dur_out)
-        if energy_target is not None:
-            energy_out = self.energy_lookup(torch.bucketize(energy_target, self.energy_bins))
-        else:
-            energy_out = self.energy_lookup(torch.bucketize(energy_preds.detach(), self.energy_bins))
-        out += energy_out
-        out *= mask.unsqueeze(dim=2)
-
-        out, spec_len = self.phonems_to_mels(out, log_dur_preds, dur_target, spec_len)
-        out *= get_mask_from_lengths(spec_len).unsqueeze(-1)
+        """
+        WRITE YOUR CODE HERE
+        ...
+        1. you need to predict durations (duration_predictor predicts logs)
+        2. predict pitch, depending on stage traingn/inference, you predicted pitch or gt to get pith
+        that will be added to feature map
+        3. map phonem sequence to frames (use phonems_to_mels for that)
+        4. dont forget to mask out paddings!
+        """
 
         return out, log_dur_preds, pitch_preds, energy_preds, spec_len
 

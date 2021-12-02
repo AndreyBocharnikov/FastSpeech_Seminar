@@ -59,18 +59,6 @@ class Preprocessor:
         return sample_phones_mapping
 
     def dp_alignment(self, attention):
-        """
-        Here you are given with an attention prob matrix
-            with a shape of N_frames X N_graphemes
-
-        You should compute the optimal way according to the formula above with DP.
-        With the optimal way (sequence j_i) computed you should return durations.
-        So, duration of j-th gratheme == #(i: j_i == j) -- number of frames at which
-            our optimal way is 'stuck' at the grapheme.
-        These durations, as an integer numpy array should be returned from the function.
-        """
-
-        # !!!!!!!!!!!!!!!!!!!!!!
         n, m = attention.shape
         dp = np.full_like(attention, np.NINF)
         came_from = np.zeros(attention.shape)
@@ -80,36 +68,16 @@ class Preprocessor:
 
         for i in range(dp.shape[0]):
             for j in range(dp.shape[1]):
-                if i == 0 and j == 0:
-                    dp[i][i] = get_log(attention[i][j])
-                elif j == 0:
-                    dp[i][j] = dp[i - 1][j] + get_log(attention[i][j])
-                elif i == 0:
-                    continue
-                else:
-                    if dp[i - 1][j - 1] > dp[i - 1][j]:
-                        dp[i][j] = dp[i - 1][j - 1] + get_log(attention[i][j])
-                        came_from[i][j] = 1
-                    else:
-                        dp[i][j] = dp[i - 1][j] + get_log(attention[i][j])
+                """
+                WRITE YOUR CODE HERE
+                compute dp and path (came_from)
+                """
 
-        cur_pos = [n - 1, m - 1]
-        cur_graphem = m - 1
-        cur_duration = 1
-        durations = []
-        while cur_pos[0] != 0 or cur_pos[1] != 0:
-            if came_from[cur_pos[0]][cur_pos[1]]:
-                durations.append(cur_duration)
-                cur_graphem -= 1
-                cur_pos[0] -= 1
-                cur_pos[1] -= 1
-                cur_duration = 1
-            else:
-                cur_duration += 1
-                cur_pos[0] -= 1
+        """
+        WRITE YOUR CODE HERE
+        compute durations using path
+        """
 
-        durations.append(cur_duration)
-        durations = durations[::-1]
         assert sum(durations) == n
         assert len(durations) == m
         return durations
